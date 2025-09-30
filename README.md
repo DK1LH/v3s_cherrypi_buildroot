@@ -51,6 +51,24 @@ After the build, you can copy the image from Buildroot's output folder to the wo
 - The local workspace folder is mounted under /opt/work/workspace
 - Buildroot is cloned right next to it under /opt/work/buildroot
 
+## Exporting a SDK
+An SDK can be exported by using the command:
+```console
+builduser@debian:~$ make sdk
+```
+A tarball is generated an can be extracted to a custom location:
+```console
+builduser@debian:~$ sudo mkdir /opt/sdk
+builduser@debian:~$ sudo tar -xvzf output/images/arm-buildroot-linux-gnueabihf_sdk-buildroot.tar.gz -C /opt/sdk
+```
+This SDK can be chosen to be used by executing this command:
+```console
+builduser@debian:~$ source /opt/sdk/arm-buildroot-linux-gnueabihf_sdk-buildroot/environment-setup
+```
+A sample Qt6 application can be build by this command:
+```console
+builduser@debian:~$ ${CXX} /opt/work/workspace/qttest/qttestNew.cpp -o /opt/work/workspace/qttest/qttestNew $(pkg-config --cflags --libs Qt6Widgets)
+```
 
 ## Credits
 The patch for the integration of the LCD into U-Boot is fully based on the great work of mcerveny. I adapted his patch to work with U-Boot 2025.04.\
