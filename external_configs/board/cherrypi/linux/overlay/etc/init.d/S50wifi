@@ -1,7 +1,61 @@
 #!/bin/sh
+### BEGIN INIT INFO
+# Provides:          wifi
+# Required-Start:    $local_fs $network
+# Required-Stop:     $local_fs $network
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Bring up Wi-Fi
+### END INIT INFO
 
-echo "[WiFi] Starting wpa_supplicant..."
-wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant.conf
+# auto-pick wl* iface (falls back to wlan0)
+IFACE="$(iw dev 2>/dev/null | awk '/Interface/{print $2; exit}')"
+[ -n "$IFACE" ] || IFACE="wlan0"
 
-echo "[WiFi] Requesting IP address..."
-udhcpc -i wlan0
+WPA="$(command -v wpa_supplicant || echo /usr/sbin/wpa_supplicant)"
+UDHCP="$(command -v udhcpc || echo /sbin/udhcpc)"
+WPA_CONF="/etc/wpa_supplicant.conf"
+WPA_PID="/var/run/wpa_supplicant-$IFACE.pid"
+UDHCP_PID="/var/run/udhcpc-$IFACE.pid"
+
+start() {
+  echo "[WiFi] iface=$IFACE"
+  rfkill unblock all 2>/dev/null || true
+  mkdir -p /run/wpa_supplicant
+
+  # bring link up (some drivers need it before assoc)
+  ip link set "$IFACE" up 2>/dev/null || true
+
+  echo "[WiFi] Starting wpa_supplicant..."
+  # no -D → auto-probe (nl80211 on modern kernels)
+  "$WPA" -B -i "$IFACE" -c "$WPA_CONF" -P "$WPA_PID" || { echo "wpa_supplicant failed"; exit 1; }
+
+  # optional: wait briefly for association (up to ~6s)
+  for i in 1 2 3 4 5 6; do
+    state="$(wpa_cli -i "$IFACE" status 2>/dev/null | awk -F= '/wpa_state=/{print $2}')"
+    [ "$state" = "COMPLETED" ] && break
+    sleep 1
+  done
+  echo "[WiFi] wpa_state=${state:-unknown}"
+
+  echo "[WiFi] Requesting IP via udhcpc..."
+  # -b background, -p pidfile, -s default script sets DNS/routes
+  "$UDHCP" -i "$IFACE" -b -p "$UDHCP_PID" -s /usr/share/udhcpc/default.script
+}
+
+stop() {
+  echo "[WiFi] Stopping udhcpc and wpa_supplicant..."
+  [ -f "$UDHCP_PID" ] && kill "$(cat "$UDHCP_PID")" 2>/dev/null || true
+  [ -f "$WPA_PID" ]   && kill "$(cat "$WPA_PID")"   2>/dev/null || true
+  rm -f "$UDHCP_PID" "$WPA_PID"
+  ip addr flush dev "$IFACE" 2>/dev/null || true
+  ip route flush dev "$IFACE" 2>/dev/null || true
+}
+
+restart() { stop; sleep 1; start; }
+
+case "$1" in
+  start|stop|restart) "$1" ;;
+  status) ip -br addr show "$IFACE";;
+  *) echo "Usage: $0 {start|stop|restart|status}"; exit 1;;
+esac
