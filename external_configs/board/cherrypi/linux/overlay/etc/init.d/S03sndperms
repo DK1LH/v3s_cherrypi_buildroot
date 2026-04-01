@@ -1,0 +1,16 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          sndperms
+# Required-Start:    $local_fs
+# Default-Start:     2 3 4 5
+# Short-Description: Fix /dev/snd permissions
+### END INIT INFO
+
+case "$1" in
+  start)
+    if [ -d /dev/snd ]; then
+      chgrp -R audio /dev/snd 2>/dev/null || true
+      chmod -R 770 /dev/snd 2>/dev/null || true
+    fi
+    ;;
+esac

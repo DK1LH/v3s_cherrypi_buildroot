@@ -1,0 +1,16 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          amixer-init
+# Required-Start:    $local_fs
+# Default-Start:     2 3 4 5
+# Short-Description: Restore ALSA mixer settings
+### END INIT INFO
+
+case "$1" in
+  start)
+    echo "[amixer-init] Setting V3s mixer..."
+    # amixer -c 0 set 'Headphone Source' 'DAC'
+    amixer -c 0 set 'Headphone' 63 unmute
+    # amixer -c 0 set 'DAC' 63 unmute
+    ;;
+esac
